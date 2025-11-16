@@ -22,30 +22,30 @@ const authMiddleware = require("./middleware/auth");
 // Middleware setup
 const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
 
-// app.use(
-//   cors({
-//     origin: function (origin, callback) {
-//       // Allow mobile apps / curl / postman (no origin)
-//       if (!origin) return callback(null, true);
-
-//       if (allowedOrigins.includes(origin)) {
-//         return callback(null, true);
-//       }
-
-//       return callback(new Error("CORS blocked: " + origin), false);
-//     },
-//     credentials: true,
-//   })
-// );
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      callback(null, origin || "*"); // allow all origins
+    origin: function (origin, callback) {
+      // Allow mobile apps / curl / postman (no origin)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS blocked: " + origin), false);
     },
-    credentials: true // allow cookies
+    credentials: true,
   })
 );
+
+// app.use(
+//   cors({
+//     origin: (origin, callback) => {
+//       callback(null, origin || "*"); // allow all origins
+//     },
+//     credentials: true // allow cookies
+//   })
+// );
 
 
 app.use(express.json());
