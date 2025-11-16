@@ -23,23 +23,23 @@ const Holdings = () => {
   }, []);
 
   // Auto-refresh prices every 2 seconds
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/getUpdatePrices`, {
-          withCredentials: true,
-        });
-        const data = res.data;
-        console.log( data);
+  // useEffect(() => {
+  //   const interval = setInterval(async () => {
+  //     try {
+  //       const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/getUpdatePrices`, {
+  //         withCredentials: true,
+  //       });
+  //       const data = res.data;
+  //       console.log( data);
         
-        setAllHoldings(Array.isArray(data) ? data : data.updated || []);
-      } catch (err) {
-        console.error("Error updating prices:", err);
-      }
-    }, 10000);
+  //       setAllHoldings(Array.isArray(data) ? data : data.updated || []);
+  //     } catch (err) {
+  //       console.error("Error updating prices:", err);
+  //     }
+  //   }, 10000);
 
-    return () => clearInterval(interval);
-  }, []);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   // Derived totals
   const totalInvestment = allHoldings.reduce(
