@@ -205,12 +205,20 @@ app.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    // res.cookie("token", token, {
+    //   httpOnly: true,
+    //   secure: false,
+    //   sameSite: "lax",
+    //   maxAge: 24 * 60 * 60 * 1000,
+    // });
+
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: true,       // REQUIRED on Render HTTPS
+      sameSite: "none",   // REQUIRED for cross-site cookies
       maxAge: 24 * 60 * 60 * 1000,
     });
+
 
     res.json({
       msg: "Login successful",
@@ -227,7 +235,13 @@ app.get("/me", authMiddleware, (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie("token", { httpOnly: true, secure: false, sameSite: "lax" });
+  // res.clearCookie("token", { httpOnly: true, secure: false, sameSite: "lax" });
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none"
+  });
+
   res.json({ msg: "Logged out successfully" });
 });
 
