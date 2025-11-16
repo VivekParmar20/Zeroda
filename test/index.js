@@ -2,22 +2,23 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow mobile apps / curl / postman (no origin)
-      if (!origin) return callback(null, true);
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       // Allow mobile apps / curl / postman (no origin)
+//       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+//       if (allowedOrigins.includes(origin)) {
+//         return callback(null, true);
+//       }
 
-      return callback(new Error("CORS blocked: " + origin), false);
-    },
-    credentials: true,
-  })
-);
+//       return callback(new Error("CORS blocked: " + origin), false);
+//     },
+//     credentials: true,
+//   })
+// );
 
+app.use(cors());
 
 app.use(express.json());
 
