@@ -38,7 +38,14 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
 //   })
 // );
 
-app.use(cors());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      callback(null, origin || "*"); // allow all origins
+    },
+    credentials: true // allow cookies
+  })
+);
 
 
 app.use(express.json());
@@ -201,7 +208,7 @@ app.post("/login", async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: false,
-      sameSite: "lax",
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
