@@ -22,7 +22,22 @@ const authMiddleware = require("./middleware/auth");
 // Middleware setup
 // const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim());
+//const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim());
+const allowedOrigins = [
+  "https://zeroda-fe.onrender.com",
+  "https://zeroda-dashboardv2.onrender.com"
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS blocked: " + origin));
+    }
+  },
+  credentials: true
+}));
 
 
 // app.use(
@@ -243,6 +258,7 @@ app.post("/login", async (req, res) => {
       httpOnly: true,
       secure: true,       // REQUIRED on Render HTTPS
       sameSite: "none",   // REQUIRED for cross-site cookies
+      path:"/",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
