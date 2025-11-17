@@ -20,23 +20,41 @@ const { OrdersModel } = require("./model/OrdersModel");
 const authMiddleware = require("./middleware/auth");
 
 // Middleware setup
-const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
+// const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim());
+
+
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       // Allow mobile apps / curl / postman (no origin)
+//       if (!origin) return callback(null, true);
+
+//       if (allowedOrigins.includes(origin)) {
+//         return callback(null, true);
+//       }
+
+//       return callback(new Error("CORS blocked: " + origin), false);
+//     },
+//     credentials: true,
+//   })
+// );
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow mobile apps / curl / postman (no origin)
-      if (!origin) return callback(null, true);
-
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // mobile/postman
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-
-      return callback(new Error("CORS blocked: " + origin), false);
+      console.log("❌ BLOCKED ORIGIN:", origin);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
+
 
 // app.use(
 //   cors({
