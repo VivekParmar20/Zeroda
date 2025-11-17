@@ -52,6 +52,14 @@ app.use(express.json());
 app.set("trust proxy", 1);
 app.use(cookieParser());
 
+app.use((req, res, next) => {
+  console.log("🟡 Incoming request:", req.method, req.path);
+  console.log("🟡 Origin:", req.headers.origin);
+  console.log("🟡 Cookies:", req.headers.cookie);
+  next();
+});
+
+
 // Environment
 const PORT = process.env.PORT || 3002;
 const MONGO_URL = process.env.MONGO_URL;
