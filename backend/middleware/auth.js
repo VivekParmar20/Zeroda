@@ -3,6 +3,9 @@ const User = require("../model/UserModel");
 async function authMiddleware(req, res, next) {
   const token = req.cookies.token;
 
+console.log("Incoming cookies:", req.cookies);
+
+  
   if (!token) {
     return res.status(401).json({ msg: "No token, authorization denied" });
   }
