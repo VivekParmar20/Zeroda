@@ -274,8 +274,10 @@ app.post("/login", async (req, res) => {
 });
 
 app.get("/me", authMiddleware, (req, res) => {
-  res.json({ user: req.user });
+  const token = req.cookies.token;
+  res.json({ user: req.user, token });
 });
+
 
 app.post("/logout", (req, res) => {
   // res.clearCookie("token", { httpOnly: true, secure: false, sameSite: "lax" });
