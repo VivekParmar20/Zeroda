@@ -5,16 +5,17 @@ import axios from "axios";
 function Navbar() {
   const [user, setUser] = useState(null);
 
+  // Fetch logged-in user + token from backend
   useEffect(() => {
     axios
       .get(`${process.env.REACT_APP_BACKEND_URL}/me`, { withCredentials: true })
-      .then((res) => setUser(res.data.user))
+      .then((res) => {
+        setUser({ ...res.data.user, token: res.data.token }); // store token also
+      })
       .catch(() => setUser(null));
   }, []);
-  //  useEffect(()=>{
-  //   handleDashboard();
-  // },[])
 
+  // Logout handler
   const handleLogout = async () => {
     try {
       await axios.post(`${process.env.REACT_APP_BACKEND_URL}/logout`, {}, { withCredentials: true });
@@ -25,11 +26,17 @@ function Navbar() {
       console.error("Logout failed:", err);
     }
   };
-const handleDashboard = () => {
-  const url = `${process.env.REACT_APP_DASHBOARD_URL}`;
-  window.open(url, "_self");
-};
 
+  // Dashboard redirect handler
+  const handleDashboard = () => {
+    if (!user || !user.token) {
+      console.error("Cannot redirect - token missing");
+      return;
+    }
+
+    const url = `${process.env.REACT_APP_DASHBOARD_URL}/?token=${user.token}`;
+    window.open(url, "_self");
+  };
 
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-light border-bottom">
@@ -38,7 +45,7 @@ const handleDashboard = () => {
           <img src="media/images/logo.svg" alt="Logo" style={{ width: "25%" }} />
         </Link>
 
-        {/* Toggle button for mobile */}
+        {/* Mobile Toggle */}
         <button
           className="navbar-toggler"
           type="button"
@@ -53,43 +60,26 @@ const handleDashboard = () => {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto mb-2 mb-lg-0">
+
             {!user && (
               <li className="nav-item">
-                <Link className="nav-link" to="/login">
-                  Signup
-                </Link>
+                <Link className="nav-link" to="/login">Signup</Link>
               </li>
             )}
 
-            <li className="nav-item">
-              <Link className="nav-link" to="/about">
-                About
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className="nav-link" to="/product">
-                Products
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className="nav-link" to="/pricing">
-                Pricing
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className="nav-link" to="/support">
-                Support
-              </Link>
-            </li>
+            <li className="nav-item"><Link className="nav-link" to="/about">About</Link></li>
+            <li className="nav-item"><Link className="nav-link" to="/product">Products</Link></li>
+            <li className="nav-item"><Link className="nav-link" to="/pricing">Pricing</Link></li>
+            <li className="nav-item"><Link className="nav-link" to="/support">Support</Link></li>
 
             {user && (
               <>
                 <li className="nav-item">
-                  <button className="btn btn-link nav-link" onClick={handleDashboard}
-                  >
+                  <button className="btn btn-link nav-link" onClick={handleDashboard}>
                     Dashboard
                   </button>
                 </li>
+
                 <li className="nav-item">
                   <button className="btn btn-link nav-link" onClick={handleLogout}>
                     Logout
@@ -97,6 +87,7 @@ const handleDashboard = () => {
                 </li>
               </>
             )}
+
           </ul>
         </div>
       </div>
