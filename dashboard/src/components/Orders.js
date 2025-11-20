@@ -9,7 +9,9 @@ const Orders = () => {
   useEffect(() => {
     axios
       .get(`${process.env.REACT_APP_BACKEND_URL}/allOrders`, {
-        withCredentials: true, // ✅ include cookies for authentication
+        headers: {
+    Authorization: "Bearer " + localStorage.getItem("dashboardToken")
+  } // ✅ include cookies for authentication
       })
       .then((res) => {
         setOrders(res.data);
