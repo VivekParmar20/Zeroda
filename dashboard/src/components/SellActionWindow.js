@@ -27,7 +27,12 @@ const SellActionWindow = ({ uid }) => {
           price: stockPrice,
           mode: "SELL",
         },
-        { withCredentials: true } // important for auth cookie
+        { axios.post(`${process.env.REACT_APP_BACKEND_URL}/newOrder`, formData, {
+  headers: {
+    Authorization: "Bearer " + localStorage.getItem("dashboardToken")
+  }
+})
+} // important for auth cookie
       );
 
       window.location.reload(); // refresh to reflect updated holdings/orders
