@@ -13,7 +13,12 @@ const Summary = () => {
 
   useEffect(() => {
     axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/allHoldings`, { withCredentials: true })
+      .get(`${process.env.REACT_APP_BACKEND_URL}/allHoldings`, { axios.post(`${process.env.REACT_APP_BACKEND_URL}/newOrder`, formData, {
+  headers: {
+    Authorization: "Bearer " + localStorage.getItem("dashboardToken")
+  }
+})
+ })
       .then((res) => {
         const holdings = res.data || [];
 
