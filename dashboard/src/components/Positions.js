@@ -4,10 +4,12 @@ import axios from "axios";
 const Positions = () => {
   const [allPositions, setAllPositions] = useState([]);
   
- useEffect(() => {
+  useEffect(() => {
   axios
     .get(`${process.env.REACT_APP_BACKEND_URL}/allPositions`, {
-      withCredentials: true, // ✅ send cookies
+      headers: {
+    Authorization: "Bearer " + localStorage.getItem("dashboardToken")
+  } // ✅ send cookies
     })
     .then((res) => {
       setAllPositions(res.data);
