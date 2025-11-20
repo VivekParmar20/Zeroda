@@ -28,7 +28,9 @@ const BuyActionWindow = ({ uid }) => {
           price: stockPrice,
           mode: "BUY",
         },
-        { withCredentials: true } // important for auth cookie
+        { headers: {
+    Authorization: "Bearer " + localStorage.getItem("dashboardToken")
+  } } // important for auth cookie
       );
 
       window.location.reload(); // refresh to reflect new holdings/orders
