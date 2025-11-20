@@ -14,7 +14,14 @@ const [user, setUser] = useState(null);
   
   useEffect(() => {
     axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/me`, { withCredentials: true }) // ✅ check if logged in
+      .get(`${process.env.REACT_APP_BACKEND_URL}/me`, { useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+
+  if (token) {
+    localStorage.setItem("dashboardToken", token);
+  }
+}, []);}) // ✅ check if logged in
       .then((res) => setUser(res.data.user))
       .catch(() => setUser(null));
   }, []);
