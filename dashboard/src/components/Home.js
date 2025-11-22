@@ -10,6 +10,9 @@ const Home = () => {
   const token = params.get("token");
 
   if (token) {
+    console.log("========================");
+    console.log(token);
+    console.log("========================");
     localStorage.setItem("dashboardToken", token);
   }
 }, []);
