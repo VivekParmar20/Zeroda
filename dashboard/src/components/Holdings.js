@@ -5,12 +5,14 @@ import { VerticalGraph } from "./VerticalGraph";
 const Holdings = () => {
   const [allHoldings, setAllHoldings] = useState([]);
 
+  const token = localStorage.getItem("dashboardToken");
+
   // Load holdings initially
   useEffect(() => {
     axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/allHoldings`, { headers: {
-    Authorization: "Bearer " + localStorage.getItem("dashboardToken")
-  }})
+      .get(`${process.env.REACT_APP_BACKEND_URL}/allHoldings`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
       .then((res) => {
         const data = res.data;
         setAllHoldings(Array.isArray(data) ? data : data.updated || []);
@@ -24,20 +26,20 @@ const Holdings = () => {
       });
   }, []);
 
-  // Auto-refresh prices every 2 seconds
+  // Auto-refresh every 10 sec
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/getUpdatePrices`, {
-          withCredentials: true,
+    const interval = setInterval(() => {
+      axios
+        .get(`${process.env.REACT_APP_BACKEND_URL}/getUpdatePrices`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((res) => {
+          const data = res.data;
+          setAllHoldings(Array.isArray(data) ? data : data.updated || []);
+        })
+        .catch((err) => {
+          console.error("Error updating prices:", err);
         });
-        const data = res.data;
-        console.log( data);
-        
-        setAllHoldings(Array.isArray(data) ? data : data.updated || []);
-      } catch (err) {
-        console.error("Error updating prices:", err);
-      }
     }, 10000);
 
     return () => clearInterval(interval);
@@ -76,6 +78,7 @@ const Holdings = () => {
   return (
     <>
       <h3 className="title">Holdings ({allHoldings.length})</h3>
+
       <div className="order-table">
         <table>
           <thead>
@@ -87,28 +90,32 @@ const Holdings = () => {
               <th>Cur Val</th>
               <th>P&L</th>
               <th>Net Chg</th>
-             
             </tr>
           </thead>
+
           <tbody>
             {allHoldings.map((s) => {
               const curVal = s.price * s.qty;
               const pnl = curVal - s.avg * s.qty;
               const isProfit = pnl >= 0;
+
               return (
                 <tr key={s._id}>
                   <td>{s.name}</td>
                   <td>{s.qty}</td>
                   <td>{s.avg.toFixed(2)}</td>
+
                   <td className={isProfit ? "profit" : "loss"}>
                     ₹{s.price.toFixed(2)}
                   </td>
+
                   <td>₹{curVal.toFixed(2)}</td>
+
                   <td className={isProfit ? "profit" : "loss"}>
                     {isProfit ? "▲" : "▼"} ₹{Math.abs(pnl).toFixed(2)}
                   </td>
+
                   <td className={isProfit ? "profit" : "loss"}>{s.net}</td>
-                  {/* <td className={isProfit ? "profit" : "loss"}>{s.day}</td> */}
                 </tr>
               );
             })}
@@ -121,10 +128,12 @@ const Holdings = () => {
           <h5>₹{totalInvestment.toFixed(2)}</h5>
           <p>Total Investment</p>
         </div>
+
         <div className="col">
           <h5>₹{currentValue.toFixed(2)}</h5>
           <p>Current Value</p>
         </div>
+
         <div className="col">
           <h5
             style={{
