@@ -6,7 +6,7 @@ const Menu = () => {
   const [selectedMenu, setSelectedMenu] = useState(0);
   const [user, setUser] = useState(null);
 
-  // 1) Save token from URL
+  // 1) Save token from URL if present
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
@@ -44,6 +44,8 @@ const Menu = () => {
   const menuClass = "menu";
   const activeMenuClass = "menu selected";
 
+  const linkStyle = { textDecoration: "none" };
+
   return (
     <div className="menu-container">
       <img src="logo.png" style={{ width: "50px" }} alt="" />
@@ -51,7 +53,7 @@ const Menu = () => {
       <div className="menus">
         <ul>
           <li>
-            <Link to="/" onClick={() => setSelectedMenu(0)}>
+            <Link style={linkStyle} to="/" onClick={() => setSelectedMenu(0)}>
               <p className={selectedMenu === 0 ? activeMenuClass : menuClass}>
                 Dashboard
               </p>
@@ -59,7 +61,11 @@ const Menu = () => {
           </li>
 
           <li>
-            <Link to="/orders" onClick={() => setSelectedMenu(1)}>
+            <Link
+              style={linkStyle}
+              to="/orders"
+              onClick={() => setSelectedMenu(1)}
+            >
               <p className={selectedMenu === 1 ? activeMenuClass : menuClass}>
                 Orders
               </p>
@@ -67,7 +73,11 @@ const Menu = () => {
           </li>
 
           <li>
-            <Link to="/holdings" onClick={() => setSelectedMenu(2)}>
+            <Link
+              style={linkStyle}
+              to="/holdings"
+              onClick={() => setSelectedMenu(2)}
+            >
               <p className={selectedMenu === 2 ? activeMenuClass : menuClass}>
                 Holdings
               </p>
@@ -75,7 +85,11 @@ const Menu = () => {
           </li>
 
           <li>
-            <Link to="/positions" onClick={() => setSelectedMenu(3)}>
+            <Link
+              style={linkStyle}
+              to="/positions"
+              onClick={() => setSelectedMenu(3)}
+            >
               <p className={selectedMenu === 3 ? activeMenuClass : menuClass}>
                 Positions
               </p>
@@ -83,7 +97,11 @@ const Menu = () => {
           </li>
 
           <li>
-            <Link to="/funds" onClick={() => setSelectedMenu(4)}>
+            <Link
+              style={linkStyle}
+              to="/funds"
+              onClick={() => setSelectedMenu(4)}
+            >
               <p className={selectedMenu === 4 ? activeMenuClass : menuClass}>
                 Funds
               </p>
@@ -93,6 +111,7 @@ const Menu = () => {
           <li>
             <a
               href={process.env.REACT_APP_FRONTEND_URL}
+              style={linkStyle}
               onClick={() => setSelectedMenu(6)}
             >
               <p className={selectedMenu === 6 ? activeMenuClass : menuClass}>
@@ -105,7 +124,11 @@ const Menu = () => {
         <hr />
 
         <div className="profile">
-          <div className="avatar" style={{ width: "40px" }} onClick={handleLogout}>
+          <div
+            className="avatar"
+            style={{ width: "40px" }}
+            onClick={handleLogout}
+          >
             Logout
           </div>
         </div>
