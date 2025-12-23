@@ -255,7 +255,7 @@ app.post("/login", async (req, res) => {
     // });
 
     res.cookie("token", token, {
-      httpOnly: false,
+      httpOnly: true,
       secure: false,       // REQUIRED on Render HTTPS
       sameSite: "none",   // REQUIRED for cross-site cookies
       path:"/",
