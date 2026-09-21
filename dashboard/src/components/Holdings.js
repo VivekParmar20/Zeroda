@@ -21,7 +21,8 @@ const Holdings = () => {
         console.error("Failed to fetch holdings:", err);
         if (err.response?.status === 401) {
           alert("Session expired. Please login again.");
-          window.location.href = "/login";
+          localStorage.removeItem("dashboardToken");
+          window.location.href = process.env.REACT_APP_FRONTEND_URL;
         }
       });
   }, []);

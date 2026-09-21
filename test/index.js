@@ -2,22 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 
-// app.use(
-//   cors({
-//     origin: function (origin, callback) {
-//       // Allow mobile apps / curl / postman (no origin)
-//       if (!origin) return callback(null, true);
-
-//       if (allowedOrigins.includes(origin)) {
-//         return callback(null, true);
-//       }
-
-//       return callback(new Error("CORS blocked: " + origin), false);
-//     },
-//     credentials: true,
-//   })
-// );
-
 app.use(cors());
 
 app.use(express.json());
@@ -42,6 +26,7 @@ app.get("/", (req, res) => {
   });
 });
 
-app.listen(4000, () => {
-  console.log("Server is running on port 4000");
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

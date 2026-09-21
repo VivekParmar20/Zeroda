@@ -20,41 +20,12 @@ const { OrdersModel } = require("./model/OrdersModel");
 const authMiddleware = require("./middleware/auth");
 
 // Middleware setup
-// const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
-
-//const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim());
-const allowedOrigins = [
-  "https://zeroda-fe.onrender.com",
-  "https://zeroda-dashboardv2.onrender.com"
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS blocked: " + origin));
-    }
-  },
-  credentials: true
-}));
-
-
-// app.use(
-//   cors({
-//     origin: function (origin, callback) {
-//       // Allow mobile apps / curl / postman (no origin)
-//       if (!origin) return callback(null, true);
-
-//       if (allowedOrigins.includes(origin)) {
-//         return callback(null, true);
-//       }
-
-//       return callback(new Error("CORS blocked: " + origin), false);
-//     },
-//     credentials: true,
-//   })
-// );
+const allowedOrigins = (
+  process.env.ALLOWED_ORIGINS ||
+  "https://zeroda-fe.onrender.com,https://zeroda-dashboardv2.onrender.com"
+)
+  .split(",")
+  .map((o) => o.trim());
 
 app.use(
   cors({
@@ -70,20 +41,16 @@ app.use(
   })
 );
 
-
-// app.use(
-//   cors({
-//     origin: (origin, callback) => {
-//       callback(null, origin || "*"); // allow all origins
-//     },
-//     credentials: true // allow cookies
-//   })
-// );
-
-
 app.use(express.json());
 app.set("trust proxy", 1);
 app.use(cookieParser());
+
+// Prevent the browser from reusing a cached response (with stale CORS
+// headers, e.g. from before a server restart) across different origins.
+app.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 
 app.use((req, res, next) => {
   console.log("🟡 Incoming request:", req.method, req.path);
@@ -92,11 +59,15 @@ app.use((req, res, next) => {
   next();
 });
 
-
 // Environment
 const PORT = process.env.PORT || 3002;
 const MONGO_URL = process.env.MONGO_URL;
 const PRICE_SERVER_URL = process.env.PRICE_SERVER_URL;
+
+// Simulated opening balance / max margin available per user.
+// Mirrors the THRESHOLD constant used for display in the dashboard's
+// Funds and Summary pages — kept here so it can actually be enforced.
+const OPENING_BALANCE = 3740.0;
 
 // Connect to MongoDB
 mongoose
@@ -117,6 +88,17 @@ app.get("/allHoldings", authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Positions Route
+app.get("/allPositions", authMiddleware, async (req, res) => {
+  try {
+    const allPositions = await PositionsModel.find({ userId: req.user.id });
+    res.json(allPositions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error fetching positions");
+  }
+});
+
 // ✅ Orders Route
 app.get("/allOrders", authMiddleware, async (req, res) => {
   try {
@@ -134,6 +116,9 @@ app.get("/allOrders", authMiddleware, async (req, res) => {
 app.post("/newOrder", authMiddleware, async (req, res) => {
   try {
     const { name, qty, price, mode } = req.body;
+    // product: "CNC" (delivery — goes to Holdings, carried overnight) or
+    // "MIS" (intraday — goes to Positions, meant to be squared off same day).
+    const product = req.body.product === "MIS" ? "MIS" : "CNC";
 
     if (!name || qty === undefined || price === undefined || !mode) {
       return res.status(400).json({ msg: "All fields are required" });
@@ -142,38 +127,96 @@ app.post("/newOrder", authMiddleware, async (req, res) => {
     const qtyNum = Number(qty);
     const priceNum = Number(price);
 
-    if (!Number.isFinite(qtyNum) || !Number.isFinite(priceNum)) {
-      return res.status(400).json({ msg: "qty and price must be numbers" });
+    if (!Number.isFinite(qtyNum) || !Number.isFinite(priceNum) || qtyNum <= 0) {
+      return res.status(400).json({ msg: "qty and price must be valid numbers" });
     }
 
-    // Save order
+    if (mode !== "BUY" && mode !== "SELL") {
+      return res.status(400).json({ msg: "Invalid mode" });
+    }
+
+    const PositionOrHoldingModel = product === "MIS" ? PositionsModel : HoldingsModel;
+
+    // Find the existing holding/position first so we know whether the
+    // order can actually execute.
+    let entry = await PositionOrHoldingModel.findOne({
+      userId: req.user.id,
+      name,
+    });
+
+    // Validate before persisting anything, so a rejected order never
+    // silently mutates holdings/positions or leaves a misleading record.
+    let rejectReason = null;
+
+    if (mode === "SELL") {
+      if (!entry) {
+        rejectReason =
+          product === "MIS"
+            ? "You don’t have an open intraday position in this stock."
+            : "You don’t own this stock to sell.";
+      } else if (entry.qty < qtyNum) {
+        rejectReason = "Not enough quantity to sell.";
+      }
+    } else if (mode === "BUY") {
+      // Margin is shared across delivery holdings AND open intraday
+      // positions, so routing through MIS can't bypass the funds check.
+      const [existingHoldings, existingPositions] = await Promise.all([
+        HoldingsModel.find({ userId: req.user.id }),
+        PositionsModel.find({ userId: req.user.id }),
+      ]);
+      const marginUsed = [...existingHoldings, ...existingPositions].reduce(
+        (sum, h) => sum + h.avg * h.qty,
+        0
+      );
+      const marginAvailable = OPENING_BALANCE - marginUsed;
+      const orderCost = qtyNum * priceNum;
+
+      if (orderCost > marginAvailable) {
+        rejectReason = `Insufficient margin. Available ₹${marginAvailable.toFixed(
+          2
+        )}, required ₹${orderCost.toFixed(2)}.`;
+      }
+    }
+
+    if (rejectReason) {
+      await new OrdersModel({
+        userId: req.user.id,
+        name,
+        qty: qtyNum,
+        price: priceNum,
+        mode,
+        product,
+        status: "REJECTED",
+        rejectReason,
+      }).save();
+
+      return res.status(400).json({ msg: rejectReason });
+    }
+
+    // Order is valid — record it as COMPLETE and apply it to holdings/positions
     const newOrder = new OrdersModel({
       userId: req.user.id,
       name,
       qty: qtyNum,
       price: priceNum,
       mode,
+      product,
+      status: "COMPLETE",
     });
     await newOrder.save();
 
-    // Find or update holding
-    let holding = await HoldingsModel.findOne({
-      userId: req.user.id,
-      name,
-    });
-
     if (mode === "BUY") {
-      if (holding) {
+      if (entry) {
         // calculate new average properly
-        const prevTotalCost = holding.avg * holding.qty;
-        const newTotalQty = holding.qty + qtyNum;
+        const prevTotalCost = entry.avg * entry.qty;
+        const newTotalQty = entry.qty + qtyNum;
         const newTotalCost = prevTotalCost + priceNum * qtyNum;
-        holding.avg = newTotalCost / newTotalQty;
-        holding.qty = newTotalQty;
-        holding.price = priceNum;
-        await holding.save();
+        entry.avg = newTotalCost / newTotalQty;
+        entry.qty = newTotalQty;
+        entry.price = priceNum;
+        await entry.save();
       } else {
-        const newHolding = new HoldingsModel({
+        const newEntry = new PositionOrHoldingModel({
           userId: req.user.id,
           name,
           qty: qtyNum,
@@ -181,23 +224,20 @@ app.post("/newOrder", authMiddleware, async (req, res) => {
           price: priceNum,
           net: "0%",
           day: "0%",
+          ...(product === "MIS" ? { product: "MIS", isLoss: false } : {}),
         });
-        await newHolding.save();
-      }
-    } else if (mode === "SELL") {
-      if (!holding) return res.status(400).json({ msg: "You don’t own this stock to sell." });
-      if (holding.qty < qtyNum) return res.status(400).json({ msg: "Not enough quantity to sell." });
-
-      holding.qty -= qtyNum;
-      holding.price = priceNum;
-
-      if (holding.qty === 0) {
-        await HoldingsModel.deleteOne({ _id: holding._id });
-      } else {
-        await holding.save();
+        await newEntry.save();
       }
     } else {
-      return res.status(400).json({ msg: "Invalid mode" });
+      // SELL — already validated above
+      entry.qty -= qtyNum;
+      entry.price = priceNum;
+
+      if (entry.qty === 0) {
+        await PositionOrHoldingModel.deleteOne({ _id: entry._id });
+      } else {
+        await entry.save();
+      }
     }
 
     res.json({ msg: "Order processed successfully" });
@@ -247,24 +287,22 @@ app.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    // res.cookie("token", token, {
-    //   httpOnly: true,
-    //   secure: false,
-    //   sameSite: "lax",
-    //   maxAge: 24 * 60 * 60 * 1000,
-    // });
+    // Chrome rejects SameSite=None cookies unless Secure is also set, even on
+    // http://localhost — so local dev (plain HTTP) needs sameSite:"lax",
+    // while the deployed Render app (cross-site HTTPS) needs sameSite:"none"+secure.
+    const isProd = process.env.NODE_ENV === "production";
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,       // REQUIRED on Render HTTPS
-      sameSite: "none",   // REQUIRED for cross-site cookies
-      path:"/",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      path: "/",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-
     res.json({
       msg: "Login successful",
+      token,
       user: { id: user._id, username: user.username, email: user.email },
     });
   } catch (err) {
@@ -278,13 +316,13 @@ app.get("/me", authMiddleware, (req, res) => {
   res.json({ user: req.user, token });
 });
 
-
 app.post("/logout", (req, res) => {
-  // res.clearCookie("token", { httpOnly: true, secure: false, sameSite: "lax" });
+  const isProd = process.env.NODE_ENV === "production";
   res.clearCookie("token", {
     httpOnly: true,
-    secure: true,
-    sameSite: "none"
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
   });
 
   res.json({ msg: "Logged out successfully" });
@@ -294,16 +332,14 @@ app.post("/logout", (req, res) => {
 // This endpoint fetches a simulated price from another service (localhost:4000)
 // then updates holdings with matching name (for all users that hold that name).
 
-
 app.get("/getUpdatePrices", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // 🟢 Fetch only this user's holdings
+    // 🟢 Fetch this user's holdings (positions are handled further below —
+    // don't bail out early just because holdings are empty, a user might
+    // only have open intraday positions).
     const userHoldings = await HoldingsModel.find({ userId });
-    if (!userHoldings || userHoldings.length === 0) {
-      return res.json({ msg: "No holdings found for this user", updated: [] });
-    }
 
     const updatedHoldings = [];
 
@@ -312,10 +348,8 @@ app.get("/getUpdatePrices", authMiddleware, async (req, res) => {
       try {
         // Get new simulated price from your price server
         const { data } = await axios.get(
-  `${process.env.PRICE_SERVER_URL}?stockName=${holding.name}&currentPrice=${holding.price}`
-);
-
-
+          `${process.env.PRICE_SERVER_URL}?stockName=${holding.name}&currentPrice=${holding.price}`
+        );
 
         if (data && typeof data.price === "number") {
           const newPrice = data.price;
@@ -335,9 +369,33 @@ app.get("/getUpdatePrices", authMiddleware, async (req, res) => {
 
           await holding.save();
           updatedHoldings.push(holding);
+          console.log(`✅ Updated ${holding.name}: Price ${holding.price}, Net ${holding.net}, Day ${holding.day}`);
         }
       } catch (innerErr) {
         console.error(`Failed to update ${holding.name}:`, innerErr.message);
+      }
+    }
+
+    // 🕒 Do the same for open intraday (MIS) positions
+    const userPositions = await PositionsModel.find({ userId });
+    for (const position of userPositions) {
+      try {
+        const { data } = await axios.get(
+          `${process.env.PRICE_SERVER_URL}?stockName=${position.name}&currentPrice=${position.price}`
+        );
+
+        if (data && typeof data.price === "number") {
+          const newPrice = data.price;
+          const dayChange = (Math.random() - 0.5) * 3; // ±3%
+
+          position.price = Number(newPrice.toFixed(2));
+          position.day = `${dayChange >= 0 ? "+" : ""}${dayChange.toFixed(2)}%`;
+          position.isLoss = newPrice < position.avg;
+
+          await position.save();
+        }
+      } catch (innerErr) {
+        console.error(`Failed to update position ${position.name}:`, innerErr.message);
       }
     }
 
@@ -348,21 +406,6 @@ app.get("/getUpdatePrices", authMiddleware, async (req, res) => {
     return res.status(500).json({ msg: "Error updating prices" });
   }
 });
-
-
-
-
-// If you want an automatic background updater, uncomment below.
-// NOTE: if your price service is running locally you might prefer manual triggers.
-// const INTERVAL_MS = 2000; // 2 seconds
-// setInterval(async () => {
-//   try {
-//     // example: update TCS every tick (or you could loop through all distinct names)
-//     await axios.get("http://localhost:3002/getUpdatePrices?stockName=TCS");
-//   } catch (e) {
-//     console.error("Auto-update tick failed:", e.message || e);
-//   }
-// }, INTERVAL_MS);
 
 // ---------------------- START SERVER ----------------------
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

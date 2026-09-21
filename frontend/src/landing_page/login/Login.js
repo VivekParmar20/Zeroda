@@ -27,7 +27,8 @@ function Login() {
     if (res.data.msg === "Login successful") {
       alert("Login successful!");
       localStorage.setItem("isLoggedIn", "true");
-      window.location.href = "/"; // redirect to home or dashboard
+      const dashboardUrl = process.env.REACT_APP_DASHBOARD_URL || "http://localhost:3001";
+      window.location.href = `${dashboardUrl}?token=${res.data.token}`;
     } else {
       alert(res.data.msg || "Invalid credentials!");
     }

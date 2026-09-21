@@ -6,21 +6,27 @@ const Menu = () => {
   const [selectedMenu, setSelectedMenu] = useState(0);
   const [user, setUser] = useState(null);
 
-  // 1) Save token from URL if present
+  // 1) Save token from URL if present, then fetch the user with it.
+  // Using the Bearer token (like the rest of the dashboard) instead of
+  // cookies avoids browser-extension interference with credentialed
+  // cross-origin requests.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    const tokenFromUrl = params.get("token");
 
-    if (token) {
-      localStorage.setItem("dashboardToken", token);
+    if (tokenFromUrl) {
+      localStorage.setItem("dashboardToken", tokenFromUrl);
     }
-  }, []);
 
-  // 2) Fetch user using cookie auth
-  useEffect(() => {
+    const token = tokenFromUrl || localStorage.getItem("dashboardToken");
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
     axios
       .get(`${process.env.REACT_APP_BACKEND_URL}/me`, {
-        withCredentials: true,
+        headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => setUser(res.data.user))
       .catch(() => setUser(null));
@@ -31,13 +37,17 @@ const Menu = () => {
       await axios.post(
         `${process.env.REACT_APP_BACKEND_URL}/logout`,
         {},
-        { withCredentials: true }
+        {
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("dashboardToken"),
+          },
+        }
       );
-
-      localStorage.removeItem("dashboardToken");
-      window.location.href = process.env.REACT_APP_FRONTEND_URL;
     } catch (err) {
       console.error("Logout failed:", err);
+    } finally {
+      localStorage.removeItem("dashboardToken");
+      window.location.href = process.env.REACT_APP_FRONTEND_URL;
     }
   };
 
