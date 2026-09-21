@@ -11,30 +11,47 @@ const Funds = () => {
   });
 
   useEffect(() => {
-    axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/allHoldings`, { headers: {
-    Authorization: "Bearer " + localStorage.getItem("dashboardToken")
-  } })
-      .then((res) => {
-        const holdings = res.data || [];
+    const token = localStorage.getItem("dashboardToken");
 
-        // calculate totals for this user's holdings
-        const totalInvestment = holdings.reduce(
-          (sum, s) => sum + (s.avg || 0) * (s.qty || 0),
-          0
-        );
-        const currentValue = holdings.reduce(
-          (sum, s) => sum + (s.price || 0) * (s.qty || 0),
-          0
-        );
+    // Combine delivery Holdings with open intraday Positions — margin used
+    // is shared across both on the backend, so the Funds page needs to
+    // reflect the same total exposure.
+    const fetchFunds = () => {
+      Promise.all([
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/allHoldings`, {
+          headers: { Authorization: "Bearer " + token },
+        }),
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/allPositions`, {
+          headers: { Authorization: "Bearer " + token },
+        }),
+      ])
+        .then(([holdingsRes, positionsRes]) => {
+          const combined = [
+            ...(holdingsRes.data || []),
+            ...(positionsRes.data || []),
+          ];
 
-        setFunds({
-          openingBalance: THRESHOLD,
-          totalInvestment,
-          currentValue,
-        });
-      })
-      .catch((err) => console.error("Failed to load holdings:", err));
+          const totalInvestment = combined.reduce(
+            (sum, s) => sum + (s.avg || 0) * (s.qty || 0),
+            0
+          );
+          const currentValue = combined.reduce(
+            (sum, s) => sum + (s.price || 0) * (s.qty || 0),
+            0
+          );
+
+          setFunds({
+            openingBalance: THRESHOLD,
+            totalInvestment,
+            currentValue,
+          });
+        })
+        .catch((err) => console.error("Failed to load holdings/positions:", err));
+    };
+
+    fetchFunds();
+    const interval = setInterval(fetchFunds, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const { openingBalance, totalInvestment, currentValue } = funds;

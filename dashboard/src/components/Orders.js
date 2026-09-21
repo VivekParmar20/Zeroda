@@ -25,8 +25,7 @@ const Orders = () => {
   }, []);
 
   const totalOrders = orders.length;
-  // const totalBuy = orders.filter((o) => o.mode === "Buy").length;
-  // const totalSell = orders.filter((o) => o.mode === "Sell").length;
+  const totalRejected = orders.filter((o) => o.status === "REJECTED").length;
 
   if (loading)
     return <p className="text-center mt-10 text-gray-500">Loading orders...</p>;
@@ -54,14 +53,10 @@ const Orders = () => {
           <h5 className="text-xl font-bold">{totalOrders}</h5>
           <p>Total Orders</p>
         </div>
-        {/* <div className="col bg-green-100 p-4 rounded-lg text-center flex-1">
-          <h5 className="text-xl font-bold">{totalBuy}</h5>
-          <p>Buy Orders</p>
-        </div> */}
-        {/* <div className="col bg-red-100 p-4 rounded-lg text-center flex-1">
-          <h5 className="text-xl font-bold">{totalSell}</h5>
-          <p>Sell Orders</p>
-        </div> */}
+        <div className="col bg-red-100 p-4 rounded-lg text-center flex-1">
+          <h5 className="text-xl font-bold">{totalRejected}</h5>
+          <p>Rejected Orders</p>
+        </div>
       </div>
 
       {/* Orders Table */}
@@ -73,31 +68,49 @@ const Orders = () => {
               <th className="px-4 py-2 text-left">Quantity</th>
               <th className="px-4 py-2 text-left">Price</th>
               <th className="px-4 py-2 text-left">Mode</th>
-            
+              <th className="px-4 py-2 text-left">Product</th>
+              <th className="px-4 py-2 text-left">Status</th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((order, idx) => (
-              <tr key={idx} className="hover:bg-gray-50">
-                <td className="px-4 py-2">{order.name}</td>
-                <td className="px-4 py-2">{order.qty}</td>
-                <td className="px-4 py-2">{order.price.toFixed(2)}</td>
-                <td className="px-4 py-2">
-                  <span
-                    className={`px-2 py-1 rounded-full text-white text-sm ${
-                      order.mode === "Buy"
-                        ? "bg-green-500"
-                        : order.mode === "Sell"
-                        ? "bg-red-500"
-                        : "bg-gray-400"
-                    }`}
-                  >
-                    {order.mode}
-                  </span>
-                </td>
-                
-              </tr>
-            ))}
+            {orders.map((order, idx) => {
+              const isRejected = order.status === "REJECTED";
+              return (
+                <tr key={idx} className="hover:bg-gray-50">
+                  <td className="px-4 py-2">{order.name}</td>
+                  <td className="px-4 py-2">{order.qty}</td>
+                  <td className="px-4 py-2">{order.price.toFixed(2)}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`px-2 py-1 rounded-full text-white text-sm ${
+                        order.mode === "BUY"
+                          ? "bg-green-500"
+                          : order.mode === "SELL"
+                          ? "bg-red-500"
+                          : "bg-gray-400"
+                      }`}
+                    >
+                      {order.mode}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">
+                    {order.product === "MIS" ? "Intraday" : "Delivery"}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      title={isRejected ? order.rejectReason : undefined}
+                      className={`px-2 py-1 rounded-full text-sm font-medium ${
+                        isRejected
+                          ? "bg-red-100 text-red-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {isRejected ? "✕ Rejected" : "✓ Complete"}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -14,30 +14,56 @@ const Summary = () => {
   useEffect(() => {
     const token = localStorage.getItem("dashboardToken");
 
-    axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/allHoldings`, {
-        headers: { Authorization: "Bearer " + token },
-      })
-      .then((res) => {
-        const holdings = res.data || [];
+    // Combine delivery Holdings with open intraday Positions, so the
+    // dashboard summary reflects the same total exposure the backend's
+    // margin check uses (see /newOrder).
+    const fetchSummary = () => {
+      Promise.all([
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/allHoldings`, {
+          headers: { Authorization: "Bearer " + token },
+        }),
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/allPositions`, {
+          headers: { Authorization: "Bearer " + token },
+        }),
+      ])
+        .then(([holdingsRes, positionsRes]) => {
+          const combined = [
+            ...(holdingsRes.data || []),
+            ...(positionsRes.data || []),
+          ];
 
-        const totalInvestment = holdings.reduce(
-          (sum, s) => sum + (s.avg || 0) * (s.qty || 0),
-          0
-        );
+          const totalInvestment = combined.reduce(
+            (sum, s) => sum + (s.avg || 0) * (s.qty || 0),
+            0
+          );
 
-        const currentValue = holdings.reduce(
-          (sum, s) => sum + (s.price || 0) * (s.qty || 0),
-          0
-        );
+          const currentValue = combined.reduce(
+            (sum, s) => sum + (s.price || 0) * (s.qty || 0),
+            0
+          );
 
-        setFunds({
-          openingBalance: THRESHOLD,
-          totalInvestment,
-          currentValue,
-        });
-      })
-      .catch((err) => console.error("Failed to fetch holdings:", err));
+          setFunds({
+            openingBalance: THRESHOLD,
+            totalInvestment,
+            currentValue,
+          });
+        })
+        .catch((err) => console.error("Failed to fetch holdings/positions:", err));
+    };
+
+    fetchSummary();
+
+    // Drive our own price tick (same as Holdings/Positions do) so the
+    // dashboard's P&L is live even if neither of those pages is open.
+    const interval = setInterval(() => {
+      axios
+        .get(`${process.env.REACT_APP_BACKEND_URL}/getUpdatePrices`, {
+          headers: { Authorization: "Bearer " + token },
+        })
+        .then(fetchSummary)
+        .catch((err) => console.error("Error updating prices:", err));
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const { openingBalance, totalInvestment, currentValue } = funds;
